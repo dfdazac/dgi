@@ -5,7 +5,7 @@ import time
 import tensorflow as tf
 
 from gcn.utils import *
-from gcn.models import GCN, MLP
+from gcn.models import GCN, MLP, DGI
 
 # Set random seed
 seed = 123
@@ -16,7 +16,7 @@ tf.set_random_seed(seed)
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'cora', 'Dataset string.')  # 'cora', 'citeseer', 'pubmed'
-flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
+flags.DEFINE_string('model', 'dgi', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense', 'dgi'
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 200, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 16, 'Number of units in hidden layer 1.')
@@ -42,6 +42,10 @@ elif FLAGS.model == 'dense':
     support = [preprocess_adj(adj)]  # Not used
     num_supports = 1
     model_func = MLP
+elif FLAGS.model == 'dgi':
+    support = [preprocess_adj(adj)]
+    num_supports = 1
+    model_func = DGI
 else:
     raise ValueError('Invalid argument for model: ' + str(FLAGS.model))
 

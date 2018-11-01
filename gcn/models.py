@@ -175,3 +175,32 @@ class GCN(Model):
 
     def predict(self):
         return tf.nn.softmax(self.outputs)
+
+class DGI(GCN):
+    def __init__(self, placeholders, input_dim, **kwargs):
+        super(DGI, self).__init__(placeholders, input_dim, **kwargs)
+
+    def build(self):
+        """ Wrapper for _build() """
+        with tf.variable_scope(self.name):
+            h = GraphConvolution(input_dim=self.input_dim,
+                                            output_dim=FLAGS.hidden1,
+                                            placeholders=self.placeholders,
+                                            act=tf.nn.relu,
+                                            dropout=True,
+                                            sparse_inputs=True,
+                                            logging=self.logging)(self.inputs)
+
+        # Build sequential layer model
+        self.activations.append(h)
+        self.outputs = self.activations[-1]
+
+        # Store model variables for easy access
+        variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name)
+        self.vars = {var.name: var for var in variables}
+
+        # Build metrics
+        self._loss()
+        self._accuracy()
+
+        self.opt_op = self.optimizer.minimize(self.loss)
