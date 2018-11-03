@@ -186,3 +186,50 @@ class GraphConvolution(Layer):
             output += self.vars['bias']
 
         return self.act(output)
+
+class Bilinear(Layer):
+    """Dense layer."""
+    def __init__(self, input_dim, placeholders, dropout=0., sparse_inputs=False,
+                 act=tf.nn.sigmoid, bias=False, featureless=False, **kwargs):
+        super(Bilinear, self).__init__(**kwargs)
+
+        if dropout:
+            self.dropout = placeholders['dropout']
+        else:
+            self.dropout = 0.
+
+        self.act = act
+        self.sparse_inputs = sparse_inputs
+        self.featureless = featureless
+        self.bias = bias
+
+        # helper variable for sparse dropout
+        self.num_features_nonzero = placeholders['num_features_nonzero']
+
+        with tf.variable_scope(self.name + '_vars'):
+            self.vars['weights'] = glorot([input_dim, input_dim],
+                                          name='weights')
+            if self.bias:
+                self.vars['bias'] = zeros([input_dim], name='bias')
+
+        if self.logging:
+            self._log_vars()
+
+    def _call(self, inputs):
+        x, y = inputs
+
+        # dropout
+        if self.sparse_inputs:
+            x = sparse_dropout(x, 1-self.dropout, self.num_features_nonzero)
+        else:
+            x = tf.nn.dropout(x, 1-self.dropout)
+
+        # transform
+        output = dot(x, self.vars['weights'], sparse=self.sparse_inputs)
+        output = dot(output, y, sparse=self.sparse_inputs)
+
+        # bias
+        if self.bias:
+            output += self.vars['bias']
+
+        return self.act(output)
