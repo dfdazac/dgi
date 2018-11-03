@@ -135,7 +135,8 @@ def preprocess_adj(adj):
     return sparse_to_tuple(adj_normalized)
 
 
-def construct_feed_dict(features, support, labels, labels_mask, placeholders):
+def construct_feed_dict(features, support, labels, labels_mask, placeholders,
+                        model):
     """Construct feed dictionary."""
     feed_dict = dict()
     feed_dict.update({placeholders['labels']: labels})
@@ -143,6 +144,18 @@ def construct_feed_dict(features, support, labels, labels_mask, placeholders):
     feed_dict.update({placeholders['features']: features})
     feed_dict.update({placeholders['support'][i]: support[i] for i in range(len(support))})
     feed_dict.update({placeholders['num_features_nonzero']: features[1].shape})
+
+    # When model is DGI, add corrupted graph by permuting rows
+    features_c = None
+    if model == 'dgi':
+        coords, values, shape = features
+        num_nodes = shape[0]
+        permuted_idx = np.random.permutation(np.arange(0, num_nodes))
+        new_idx = permuted_idx[coords[:, 0]]
+        new_coords = np.column_stack((coords[new_idx, 0], coords[:, 1]))
+        features_c = (new_coords, values, shape)
+
+    feed_dict.update({placeholders['features_c']: features_c})
     return feed_dict
 
 
