@@ -1,12 +1,8 @@
-# Graph Convolutional Networks
+# Deep Graph Infomax
 
-This is a TensorFlow implementation of Graph Convolutional Networks for the task of (semi-supervised) classification of nodes in a graph, as described in our paper:
- 
-Thomas N. Kipf, Max Welling, [Semi-Supervised Classification with Graph Convolutional Networks](http://arxiv.org/abs/1609.02907) (ICLR 2017)
+[Deep Graph Infomax](https://arxiv.org/abs/1809.10341) (DGI) is an unsupervised algorithm for finding representations of graphs that can be used in downstream tasks like node classification.
 
-For a high-level explanation, have a look at our blog post:
-
-Thomas Kipf, [Graph Convolutional Networks](http://tkipf.github.io/graph-convolutional-networks/) (2016)
+This is a TensorFlow implementation of DGI, based on the Graph Convolutional Network [implementation](https://github.com/tkipf/gcn) by Thomas Kipf.
 
 ## Installation
 
@@ -46,26 +42,9 @@ python train.py --dataset citeseer
 ## Models
 
 You can choose between the following models: 
+* `dgi`: Deep Graph Infomax (Petar Velicković et al., [Deep Graph Infomax](https://arxiv.org/abs/1809.10341), 2018)
 * `gcn`: Graph convolutional network (Thomas N. Kipf, Max Welling, [Semi-Supervised Classification with Graph Convolutional Networks](http://arxiv.org/abs/1609.02907), 2016)
 * `gcn_cheby`: Chebyshev polynomial version of graph convolutional network as described in (Michaël Defferrard, Xavier Bresson, Pierre Vandergheynst, [Convolutional Neural Networks on Graphs with Fast Localized Spectral Filtering](https://arxiv.org/abs/1606.09375), NIPS 2016)
 * `dense`: Basic multi-layer perceptron that supports sparse inputs
 
-## Graph classification
 
-Our framework also supports batch-wise classification of multiple graph instances (of potentially different size) with an adjacency matrix each. It is best to concatenate respective feature matrices and build a (sparse) block-diagonal matrix where each block corresponds to the adjacency matrix of one graph instance. For pooling (in case of graph-level outputs as opposed to node-level outputs) it is best to specify a simple pooling matrix that collects features from their respective graph instances, as illustrated below:
-
-![graph_classification](https://user-images.githubusercontent.com/7347296/34198790-eb5bec96-e56b-11e7-90d5-157800e042de.png)
-
-
-## Cite
-
-Please cite our paper if you use this code in your own work:
-
-```
-@inproceedings{kipf2017semi,
-  title={Semi-Supervised Classification with Graph Convolutional Networks},
-  author={Kipf, Thomas N. and Welling, Max},
-  booktitle={International Conference on Learning Representations (ICLR)},
-  year={2017}
-}
-```
