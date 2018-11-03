@@ -235,12 +235,10 @@ class Bilinear(Layer):
         return self.act(output)
 
 class MeanPooling(Layer):
-    def __init__(self, act=tf.nn.sigmoid, **kwargs):
+    def __init__(self, **kwargs):
         super(MeanPooling, self).__init__(**kwargs)
-
-        self.act = act
 
     def _call(self, inputs):
         x = inputs
-        x = tf.nn.sigmoid(tf.reduce_mean(x, axis=0))
+        x = tf.reduce_mean(x, axis=0)
         return tf.expand_dims(x, axis=-1)

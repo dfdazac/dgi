@@ -176,24 +176,43 @@ class GCN(Model):
     def predict(self):
         return tf.nn.softmax(self.outputs)
 
-class DGI(GCN):
+class DGI(Model):
     def __init__(self, placeholders, input_dim, **kwargs):
-        super(DGI, self).__init__(placeholders, input_dim, **kwargs)
+        super(DGI, self).__init__(**kwargs)
+
+        self.inputs = placeholders['features']
+        self.input_corrupt = placeholders['features_c']
+        self.input_dim = input_dim
+        # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
+        self.output_dim = placeholders['labels'].get_shape().as_list()[1]
+        self.placeholders = placeholders
+
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
+
+        self.build()
 
     def build(self):
         """ Wrapper for _build() """
         with tf.variable_scope(self.name):
-            h = GraphConvolution(input_dim=self.input_dim,
+            encoder = GraphConvolution(input_dim=self.input_dim,
                                             output_dim=FLAGS.hidden1,
                                             placeholders=self.placeholders,
-                                            act=tf.nn.relu,
+                                            act=tf.nn.relu, # original uses PReLU
                                             dropout=True,
                                             sparse_inputs=True,
-                                            logging=self.logging)(self.inputs)
+                                            logging=self.logging)
+            bilinear = Bilinear(input_dim=FLAGS.hidden1,
+                         placeholders=self.placeholders)
+            # Encode graph
+            h = encoder(self.inputs)
+            s = MeanPooling()(h)
+            d = bilinear((h, s))
 
-        # Build sequential layer model
-        self.activations.append(h)
-        self.outputs = self.activations[-1]
+            # Encode corrupted graph
+            h_c = encoder(self.input_corrupt)
+            d_c = bilinear((h_c, s))
+
+        self.outputs = (d, d_c)
 
         # Store model variables for easy access
         variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name)
@@ -204,3 +223,14 @@ class DGI(GCN):
         self._accuracy()
 
         self.opt_op = self.optimizer.minimize(self.loss)
+
+    def _loss(self):
+        d, d_c = self.outputs
+        # Infomax objective
+        obj = tf.reduce_mean(tf.log_sigmoid(d)) + tf.reduce_mean(tf.log_sigmoid(-d_c))
+
+        self.loss = -obj
+
+    def _accuracy(self):
+        # DGI's objective is unsupervised
+        self.accuracy = tf.constant(0)
