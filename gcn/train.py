@@ -1,11 +1,15 @@
 from __future__ import division
 from __future__ import print_function
+from datetime import datetime
+import os
 
 import time
 import tensorflow as tf
 
 from gcn.utils import *
 from gcn.models import GCN, MLP, DGI
+
+now = datetime.now().strftime('%Y-%m-%d-%H%M%S')
 
 # Set random seed
 seed = 42
@@ -17,12 +21,12 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'cora', 'Dataset string.')  # 'cora', 'citeseer', 'pubmed'
 flags.DEFINE_string('model', 'dgi', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense', 'dgi'
-flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
+flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 200, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 512, 'Number of units in hidden layer 1.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_float('weight_decay', 5e-4, 'Weight for L2 loss on embedding matrix.')
-flags.DEFINE_integer('early_stopping', 10, 'Tolerance for early stopping (# of epochs).')
+flags.DEFINE_integer('early_stopping', 20, 'Tolerance for early stopping (# of epochs).')
 flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 
 # Load data
@@ -63,6 +67,11 @@ placeholders = {
 # Create model
 model = model_func(placeholders, input_dim=features[2][1], logging=True)
 
+logdir = os.path.join('runs', now)
+writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
+# This can be specified in the model class instead with the logging variable
+loss_summary = tf.summary.scalar('loss', model.loss)
+
 # Initialize session
 sess = tf.Session()
 
@@ -91,11 +100,18 @@ for epoch in range(FLAGS.epochs):
     feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
     # Training step
-    outs = sess.run([model.opt_op, model.loss, model.accuracy], feed_dict=feed_dict)
+    outs = sess.run([model.opt_op, model.loss, model.accuracy, loss_summary], feed_dict=feed_dict)
 
     # Validation
-    cost, acc, duration = evaluate(features, support, y_val, val_mask, placeholders)
+    if FLAGS.model == 'dgi':
+        # Early stopping in DGI is evaluated on training set loss
+        cost, acc, duration = (outs[1], outs[2], time.time() - t)
+    else:
+        cost, acc, duration = evaluate(features, support, y_val, val_mask, placeholders)
     cost_val.append(cost)
+
+    # Log for TensorBoard
+    writer.add_summary(outs[3], global_step=epoch + 1)
 
     # Print results
     print("Epoch:", '%04d' % (epoch + 1), "train_loss=", "{:.5f}".format(outs[1]),
@@ -107,6 +123,8 @@ for epoch in range(FLAGS.epochs):
         break
 
 print("Optimization Finished!")
+
+writer.close()
 
 # Testing
 test_cost, test_acc, test_duration = evaluate(features, support, y_test, test_mask, placeholders)
