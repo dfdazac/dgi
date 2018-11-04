@@ -213,6 +213,7 @@ class DGI(Model):
             d_c = bilinear((h_c, s))
 
         self.outputs = (d, d_c)
+        self.embeddings = h
 
         # Store model variables for easy access
         variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name)

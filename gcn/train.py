@@ -1,8 +1,9 @@
 from __future__ import division
 from __future__ import print_function
+
 from datetime import datetime
 import os
-
+import pickle as pkl
 import time
 import tensorflow as tf
 
@@ -22,7 +23,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'cora', 'Dataset string.')  # 'cora', 'citeseer', 'pubmed'
 flags.DEFINE_string('model', 'dgi', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense', 'dgi'
 flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 200, 'Number of epochs to train.')
+flags.DEFINE_integer('epochs', 1, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 512, 'Number of units in hidden layer 1.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_float('weight_decay', 5e-4, 'Weight for L2 loss on embedding matrix.')
@@ -72,10 +73,6 @@ writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
 # This can be specified in the model class instead with the logging variable
 loss_summary = tf.summary.scalar('loss', model.loss)
 
-# Initialize session
-sess = tf.Session()
-
-
 # Define model evaluation function
 def evaluate(features, support, labels, mask, placeholders):
     t_test = time.time()
@@ -84,49 +81,57 @@ def evaluate(features, support, labels, mask, placeholders):
     outs_val = sess.run([model.loss, model.accuracy], feed_dict=feed_dict_val)
     return outs_val[0], outs_val[1], (time.time() - t_test)
 
-
-# Init variables
-sess.run(tf.global_variables_initializer())
-
 cost_val = []
 
 # Train model
-for epoch in range(FLAGS.epochs):
+with tf.Session() as sess:
+    # Init variables
+    sess.run(tf.global_variables_initializer())
 
-    t = time.time()
-    # Construct feed dictionary
-    feed_dict = construct_feed_dict(features, support, y_train, train_mask,
-                                    placeholders, FLAGS.model)
-    feed_dict.update({placeholders['dropout']: FLAGS.dropout})
+    for epoch in range(FLAGS.epochs):
 
-    # Training step
-    outs = sess.run([model.opt_op, model.loss, model.accuracy, loss_summary], feed_dict=feed_dict)
+        t = time.time()
+        # Construct feed dictionary
+        feed_dict = construct_feed_dict(features, support, y_train, train_mask,
+                                        placeholders, FLAGS.model)
+        feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
-    # Validation
+        # Training step
+        outs = sess.run([model.opt_op, model.loss, model.accuracy, loss_summary], feed_dict=feed_dict)
+
+        # Validation
+        if FLAGS.model == 'dgi':
+            # Early stopping in DGI is evaluated on training set loss
+            cost, acc, duration = (outs[1], outs[2], time.time() - t)
+        else:
+            cost, acc, duration = evaluate(features, support, y_val, val_mask, placeholders)
+        cost_val.append(cost)
+
+        # Log for TensorBoard
+        writer.add_summary(outs[3], global_step=epoch + 1)
+
+        # Print results
+        print("Epoch:", '%04d' % (epoch + 1), "train_loss=", "{:.5f}".format(outs[1]),
+              "train_acc=", "{:.5f}".format(outs[2]), "val_loss=", "{:.5f}".format(cost),
+              "val_acc=", "{:.5f}".format(acc), "time=", "{:.5f}".format(time.time() - t))
+
+        if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping+1):-1]):
+            print("Early stopping...")
+            break
+
+    # Save encoded graph for downstream tasks
     if FLAGS.model == 'dgi':
-        # Early stopping in DGI is evaluated on training set loss
-        cost, acc, duration = (outs[1], outs[2], time.time() - t)
-    else:
-        cost, acc, duration = evaluate(features, support, y_val, val_mask, placeholders)
-    cost_val.append(cost)
+        feed_dict.update({placeholders['dropout']: 0.0})
+        encoding = sess.run([model.embeddings], feed_dict=feed_dict)
+        path = os.path.join(logdir, 'embeddings.p')
+        pkl.dump(encoding, open(path, 'wb'))
+        print('Saved graph embeddings to {}'.format(path))
 
-    # Log for TensorBoard
-    writer.add_summary(outs[3], global_step=epoch + 1)
+    print("Optimization Finished!")
 
-    # Print results
-    print("Epoch:", '%04d' % (epoch + 1), "train_loss=", "{:.5f}".format(outs[1]),
-          "train_acc=", "{:.5f}".format(outs[2]), "val_loss=", "{:.5f}".format(cost),
-          "val_acc=", "{:.5f}".format(acc), "time=", "{:.5f}".format(time.time() - t))
+    # Testing
+    test_cost, test_acc, test_duration = evaluate(features, support, y_test, test_mask, placeholders)
+    print("Test set results:", "cost=", "{:.5f}".format(test_cost),
+          "accuracy=", "{:.5f}".format(test_acc), "time=", "{:.5f}".format(test_duration))
 
-    if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping+1):-1]):
-        print("Early stopping...")
-        break
-
-print("Optimization Finished!")
-
-writer.close()
-
-# Testing
-test_cost, test_acc, test_duration = evaluate(features, support, y_test, test_mask, placeholders)
-print("Test set results:", "cost=", "{:.5f}".format(test_cost),
-      "accuracy=", "{:.5f}".format(test_acc), "time=", "{:.5f}".format(test_duration))
+    writer.close()
