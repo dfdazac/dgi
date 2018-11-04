@@ -23,12 +23,13 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'cora', 'Dataset string.')  # 'cora', 'citeseer', 'pubmed'
 flags.DEFINE_string('model', 'logreg', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense', 'dgi', 'logreg'
 flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 1, 'Number of epochs to train.')
+flags.DEFINE_integer('epochs', 1000, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 512, 'Number of units in hidden layer 1.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
-flags.DEFINE_float('weight_decay', 5e-4, 'Weight for L2 loss on embedding matrix.')
+flags.DEFINE_float('weight_decay', 0, 'Weight for L2 loss on embedding matrix.') # 5e-4
 flags.DEFINE_integer('early_stopping', 20, 'Tolerance for early stopping (# of epochs).')
 flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
+flags.DEFINE_string('embeddings_path', 'runs/2018-11-04-154259/embeddings.p', 'Path containing graph embeddings from DGI.')
 
 # Load data
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data(FLAGS.dataset)
@@ -55,6 +56,7 @@ elif FLAGS.model == 'logreg':
     support = [preprocess_adj(adj)]  # Not used
     num_supports = 1
     model_func = LogisticRegression
+    features = load_embeddings(FLAGS.embeddings_path)
 else:
     raise ValueError('Invalid argument for model: ' + str(FLAGS.model))
 
@@ -69,8 +71,14 @@ placeholders = {
     'num_features_nonzero': tf.placeholder(tf.int32)  # helper variable for sparse dropout
 }
 
+if FLAGS.model == 'logreg':
+    placeholders['features'] = tf.placeholder(tf.float32, features.shape)
+    input_dim = features.shape[1]
+else:
+    input_dim = features[2][1]
+
 # Create model
-model = model_func(placeholders, input_dim=features[2][1], logging=True)
+model = model_func(placeholders, input_dim, logging=True)
 
 logdir = os.path.join('runs', now)
 writer = tf.summary.FileWriter(logdir, tf.get_default_graph())
@@ -109,6 +117,7 @@ with tf.Session() as sess:
             cost, acc, duration = (outs[1], outs[2], time.time() - t)
         else:
             cost, acc, duration = evaluate(features, support, y_val, val_mask, placeholders)
+
         cost_val.append(cost)
 
         # Log for TensorBoard
@@ -126,7 +135,7 @@ with tf.Session() as sess:
     # Save encoded graph for downstream tasks
     if FLAGS.model == 'dgi':
         feed_dict.update({placeholders['dropout']: 0.0})
-        encoding = sess.run([model.embeddings], feed_dict=feed_dict)
+        encoding = sess.run(model.embeddings, feed_dict=feed_dict)
         path = os.path.join(logdir, 'embeddings.p')
         pkl.dump(encoding, open(path, 'wb'))
         print('Saved graph embeddings to {}'.format(path))

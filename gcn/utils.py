@@ -89,6 +89,14 @@ def load_data(dataset_str):
 
     return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
 
+def load_embeddings(embeddings_path):
+    with open(embeddings_path, 'rb') as f:
+        if sys.version_info > (3, 0):
+            features = pkl.load(f, encoding='latin1')
+        else:
+            features = pkl.load(f)
+    return features
+
 
 def sparse_to_tuple(sparse_mx):
     """Convert sparse matrix to tuple representation."""
@@ -146,7 +154,6 @@ def construct_feed_dict(features, support, labels, labels_mask, placeholders,
     feed_dict.update({placeholders['num_features_nonzero']: features[1].shape})
 
     # When model is DGI, add corrupted graph by permuting rows
-    features_c = None
     if model == 'dgi':
         coords, values, shape = features
         num_nodes = shape[0]
@@ -154,8 +161,8 @@ def construct_feed_dict(features, support, labels, labels_mask, placeholders,
         new_idx = permuted_idx[coords[:, 0]]
         new_coords = np.column_stack((coords[new_idx, 0], coords[:, 1]))
         features_c = (new_coords, values, shape)
+        feed_dict.update({placeholders['features_c']: features_c})
 
-    feed_dict.update({placeholders['features_c']: features_c})
     return feed_dict
 
 
