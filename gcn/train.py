@@ -3,7 +3,6 @@ from __future__ import print_function
 
 from datetime import datetime
 import os
-import pickle as pkl
 import time
 import tensorflow as tf
 
@@ -23,13 +22,13 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'cora', 'Dataset string.')  # 'cora', 'citeseer', 'pubmed'
 flags.DEFINE_string('model', 'logreg', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense', 'dgi', 'logreg'
 flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 1000, 'Number of epochs to train.')
+flags.DEFINE_integer('epochs', 2000, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 512, 'Number of units in hidden layer 1.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_float('weight_decay', 0, 'Weight for L2 loss on embedding matrix.') # 5e-4
-flags.DEFINE_integer('early_stopping', 20, 'Tolerance for early stopping (# of epochs).')
+flags.DEFINE_integer('early_stopping', 40, 'Tolerance for early stopping (# of epochs).')
 flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
-flags.DEFINE_string('embeddings_path', 'runs/2018-11-04-154259/embeddings.p', 'Path containing graph embeddings from DGI.')
+flags.DEFINE_string('embeddings_path', 'runs/2018-11-04-162734/embeddings.p', 'Path containing graph embeddings from DGI.')
 
 # Load data
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data(FLAGS.dataset)

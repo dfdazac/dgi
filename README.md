@@ -14,22 +14,30 @@ python setup.py install
 * tensorflow (>0.12)
 * networkx
 
-## Run the demo
+## Run
+
+First train a DGI model:
 
 ```bash
-python train.py
+python train.py --model dgi
+```
+
+Once the model is trained, the graph embeddings are saved as a pickle file in the `runs` folder. Take note of its path (e.g. `runs/2018-11-04-164053/embeddings.p` and use it to train a logistic regression model on the node classification task:
+
+```bash
+python train.py --model logreg --embeddings_path runs/2018-11-04-164053/embeddings.p
 ```
 
 ## Data
 
-In order to use your own data, you have to provide 
-* an N by N adjacency matrix (N is the number of nodes), 
+In order to use your own data, you have to provide
+* an N by N adjacency matrix (N is the number of nodes),
 * an N by D feature matrix (D is the number of features per node), and
 * an N by E binary label matrix (E is the number of classes).
 
 Have a look at the `load_data()` function in `utils.py` for an example.
 
-In this example, we load citation network data (Cora, Citeseer or Pubmed). The original datasets can be found here: http://linqs.cs.umd.edu/projects/projects/lbc/. In our version (see `data` folder) we use dataset splits provided by https://github.com/kimiyoung/planetoid (Zhilin Yang, William W. Cohen, Ruslan Salakhutdinov, [Revisiting Semi-Supervised Learning with Graph Embeddings](https://arxiv.org/abs/1603.08861), ICML 2016). 
+In this example, we load citation network data (Cora, Citeseer or Pubmed). The original datasets can be found here: http://linqs.cs.umd.edu/projects/projects/lbc/. In our version (see `data` folder) we use dataset splits provided by https://github.com/kimiyoung/planetoid (Zhilin Yang, William W. Cohen, Ruslan Salakhutdinov, [Revisiting Semi-Supervised Learning with Graph Embeddings](https://arxiv.org/abs/1603.08861), ICML 2016).
 
 You can specify a dataset as follows:
 
@@ -41,10 +49,8 @@ python train.py --dataset citeseer
 
 ## Models
 
-You can choose between the following models: 
+You can choose between the following models:
 * `dgi`: Deep Graph Infomax (Petar Velicković et al., [Deep Graph Infomax](https://arxiv.org/abs/1809.10341), 2018)
 * `gcn`: Graph convolutional network (Thomas N. Kipf, Max Welling, [Semi-Supervised Classification with Graph Convolutional Networks](http://arxiv.org/abs/1609.02907), 2016)
 * `gcn_cheby`: Chebyshev polynomial version of graph convolutional network as described in (Michaël Defferrard, Xavier Bresson, Pierre Vandergheynst, [Convolutional Neural Networks on Graphs with Fast Localized Spectral Filtering](https://arxiv.org/abs/1606.09375), NIPS 2016)
 * `dense`: Basic multi-layer perceptron that supports sparse inputs
-
-
